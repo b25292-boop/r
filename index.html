@@ -1,0 +1,1931 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>Realistic 3D Hydroelectric Generator</title>
+
+<style>
+*{box-sizing:border-box}
+
+body{
+margin:0;
+font-family:Arial,sans-serif;
+background:#edf2f7;
+color:#172b4d;
+}
+
+header{
+height:65px;
+background:#102c4c;
+color:white;
+display:flex;
+align-items:center;
+justify-content:space-between;
+padding:0 25px;
+}
+
+header h2{font-size:20px;margin:0}
+header span{font-size:12px;color:#93c5fd}
+
+.layout{
+display:grid;
+grid-template-columns:1fr 310px;
+gap:15px;
+padding:15px;
+max-width:1700px;
+margin:auto;
+}
+
+.panel{
+background:white;
+border-radius:12px;
+padding:17px;
+box-shadow:0 3px 15px #0001;
+}
+
+h3{margin:0 0 17px;font-size:16px}
+
+#scene{
+width:100%;
+height:540px;
+background:#dce9f5;
+border-radius:9px;
+overflow:hidden;
+position:relative;
+}
+
+#scene canvas{display:block}
+
+.badge{
+position:absolute;
+top:15px;
+left:15px;
+background:#102c4ce8;
+color:white;
+padding:9px 14px;
+border-radius:7px;
+font-size:12px;
+pointer-events:none;
+}
+
+.hint{
+position:absolute;
+bottom:12px;
+left:12px;
+background:#ffffffdc;
+padding:9px;
+border-radius:6px;
+font-size:11px;
+pointer-events:none;
+}
+
+.control{margin-bottom:23px}
+
+.control label{
+display:flex;
+justify-content:space-between;
+font-size:13px;
+font-weight:bold;
+margin-bottom:10px;
+}
+
+.control span{color:#2563eb}
+
+input[type=range]{
+width:100%;
+accent-color:#2563eb;
+cursor:pointer;
+}
+
+button{
+border:0;
+border-radius:6px;
+padding:11px;
+cursor:pointer;
+font-weight:bold;
+background:#e2e8f0;
+}
+
+button:hover{filter:brightness(.94)}
+
+.buttons{display:flex;gap:7px}
+.buttons button{flex:1}
+
+.start{background:#16a34a;color:white}
+.pause{background:#f59e0b;color:white}
+
+.stats{
+display:grid;
+grid-template-columns:repeat(4,1fr);
+gap:13px;
+margin-top:15px;
+}
+
+.stat{
+background:#f8fafc;
+border:1px solid #e2e8f0;
+padding:15px;
+border-radius:8px;
+}
+
+.stat small{font-size:12px;color:#64748b}
+
+.stat strong{
+display:block;
+font-size:23px;
+color:#2563eb;
+margin-top:9px;
+}
+
+.lower{margin-top:15px}
+
+#graph{
+width:100%;
+height:210px;
+background:#101d32;
+border-radius:7px;
+display:block;
+}
+
+.description{
+font-size:13px;
+line-height:1.8;
+color:#475569;
+}
+
+.check{
+display:block;
+font-size:13px;
+margin:12px 0;
+}
+
+@media(max-width:900px){
+.layout{grid-template-columns:1fr}
+.stats{grid-template-columns:repeat(2,1fr)}
+#scene{height:450px}
+}
+
+</style>
+
+<script type="importmap">
+{
+"imports":{
+"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+"three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+}
+}
+</script>
+
+</head>
+
+<body>
+
+<header>
+<h2>⚡ Virtual Physics Laboratory</h2>
+<span>REALISTIC 3D GENERATOR SIMULATOR</span>
+</header>
+
+<div class="layout">
+
+<main>
+
+<div class="panel">
+
+<h3>Hydroelectric Generator — 3D Experiment</h3>
+
+<div id="scene">
+
+<div class="badge" id="status">
+● GENERATOR RUNNING
+</div>
+
+<div class="hint">
+Drag: Rotate | Scroll: Zoom | Right Drag: Pan
+</div>
+
+</div>
+
+</div>
+
+<div class="stats">
+
+<div class="stat">
+<small>Turbine Speed</small>
+<strong id="rpm">0 RPM</strong>
+</div>
+
+<div class="stat">
+<small>Generated EMF (RMS)</small>
+<strong id="emf">0 V</strong>
+</div>
+
+<div class="stat">
+<small>Load Current (RMS)</small>
+<strong id="current">0 A</strong>
+</div>
+
+<div class="stat">
+<small>Electrical Power</small>
+<strong id="power">0 W</strong>
+</div>
+
+</div>
+
+<div class="panel lower">
+
+<h3>Live Generated AC Voltage</h3>
+
+<canvas id="graph"></canvas>
+
+</div>
+
+<div class="panel lower">
+
+<h3>Working Principle</h3>
+
+<p class="description">
+
+Water from the nozzle strikes the turbine blades and produces
+mechanical torque. The turbine rotates a shaft connected to
+a magnetic rotor.
+
+As the magnetic rotor rotates inside the stationary copper
+winding, the changing magnetic flux induces an alternating
+electromotive force.
+
+The electrical load draws current and produces an opposing
+electromagnetic torque.
+
+</p>
+
+<p style="text-align:center;font-size:22px;color:#2563eb">
+ε = −N dΦ/dt
+</p>
+
+</div>
+
+</main>
+
+<aside class="panel">
+
+<h3>Experiment Controls</h3>
+
+<div class="control">
+
+<label>
+Water Flow
+<span id="flowText">60%</span>
+</label>
+
+<input id="flow" type="range"
+min="0" max="100" value="60">
+
+</div>
+
+<div class="control">
+
+<label>
+Magnetic Field
+<span id="fieldText">1.0 T</span>
+</label>
+
+<input id="field" type="range"
+min="0.2" max="2" step="0.1" value="1">
+
+</div>
+
+<div class="control">
+
+<label>
+Coil Turns
+<span id="turnsText">100</span>
+</label>
+
+<input id="turns" type="range"
+min="20" max="500" step="10" value="100">
+
+</div>
+
+<div class="control">
+
+<label>
+Load Resistance
+<span id="loadText">20 Ω</span>
+</label>
+
+<input id="load" type="range"
+min="2" max="100" value="20">
+
+</div>
+
+<div class="buttons">
+
+<button class="start" id="start">Start</button>
+<button class="pause" id="pause">Pause</button>
+<button id="reset">Reset</button>
+
+</div>
+
+<hr style="margin:25px 0;border:0;border-top:1px solid #ddd">
+
+<h3>Visualization</h3>
+
+<label class="check">
+<input id="waterToggle" type="checkbox" checked>
+Show Water
+</label>
+
+<label class="check">
+<input id="fieldToggle" type="checkbox" checked>
+Show Magnetic Field
+</label>
+
+<label class="check">
+<input id="housingToggle" type="checkbox" checked>
+Transparent Housing
+</label>
+
+<label class="check">
+<input id="autoToggle" type="checkbox">
+Automatic Camera Rotation
+</label>
+
+<hr style="margin:25px 0;border:0;border-top:1px solid #ddd">
+
+<h3>Camera Presets</h3>
+
+<div class="buttons">
+
+<button id="front">Front</button>
+<button id="top">Top</button>
+<button id="side">Side</button>
+
+</div>
+
+<p class="description">
+Use your mouse to rotate around the generator and inspect
+the turbine, copper winding, and magnetic rotor.
+</p>
+
+</aside>
+
+</div>
+
+<script type="module">
+
+import * as THREE from "three";
+
+import {OrbitControls}
+from "three/addons/controls/OrbitControls.js";
+
+// ======================================================
+// THREE.JS SCENE
+// ======================================================
+
+const container=document.getElementById("scene");
+
+const scene=new THREE.Scene();
+
+scene.background=new THREE.Color(0xdce9f5);
+
+const camera=new THREE.PerspectiveCamera(
+45,
+container.clientWidth/container.clientHeight,
+0.1,
+100
+);
+
+camera.position.set(9,6,11);
+
+const renderer=new THREE.WebGLRenderer({
+antialias:true
+});
+
+renderer.setSize(
+container.clientWidth,
+container.clientHeight
+);
+
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+
+renderer.shadowMap.enabled=true;
+
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+
+renderer.toneMappingExposure=1.35;
+
+container.appendChild(renderer.domElement);
+
+// ======================================================
+// CAMERA CONTROLS
+// ======================================================
+
+const controls=new OrbitControls(
+camera,
+renderer.domElement
+);
+
+controls.enableDamping=true;
+
+controls.target.set(0,1.5,0);
+
+controls.minDistance=4;
+
+controls.maxDistance=25;
+
+// ======================================================
+// LIGHTING
+// ======================================================
+
+scene.add(
+new THREE.HemisphereLight(
+0xffffff,
+0x8195ad,
+2.4
+)
+);
+
+const sunlight=new THREE.DirectionalLight(
+0xffffff,
+3.5
+);
+
+sunlight.position.set(-4,10,7);
+
+sunlight.castShadow=true;
+
+sunlight.shadow.mapSize.set(2048,2048);
+
+scene.add(sunlight);
+
+const fill=new THREE.PointLight(
+0x8ecaff,
+35
+);
+
+fill.position.set(3,5,-3);
+
+scene.add(fill);
+
+// ======================================================
+// MATERIALS
+// ======================================================
+
+const metal=new THREE.MeshStandardMaterial({
+color:0x8998a8,
+metalness:0.85,
+roughness:0.25
+});
+
+const dark=new THREE.MeshStandardMaterial({
+color:0x334155,
+metalness:0.8,
+roughness:0.3
+});
+
+const copper=new THREE.MeshPhysicalMaterial({
+color:0xb76528,
+metalness:0.92,
+roughness:0.19,
+clearcoat:0.8,
+clearcoatRoughness:0.12
+});
+
+const blue=new THREE.MeshStandardMaterial({
+color:0x1677ba,
+metalness:0.65,
+roughness:0.3,
+side:THREE.DoubleSide
+});
+
+const red=new THREE.MeshStandardMaterial({
+color:0xd93636,
+metalness:0.45,
+roughness:0.3
+});
+
+const glass=new THREE.MeshPhysicalMaterial({
+color:0xc5e6ff,
+transparent:true,
+opacity:0.12,
+metalness:0.05,
+roughness:0.1,
+depthWrite:false,
+side:THREE.DoubleSide
+});
+
+// ======================================================
+// HELPER FUNCTIONS
+// ======================================================
+
+function box(w,h,d,mat,x,y,z,parent=scene){
+
+const mesh=new THREE.Mesh(
+new THREE.BoxGeometry(w,h,d),
+mat
+);
+
+mesh.position.set(x,y,z);
+
+mesh.castShadow=true;
+mesh.receiveShadow=true;
+
+parent.add(mesh);
+
+return mesh;
+
+}
+
+function cylinder(rt,rb,h,mat,x,y,z,parent=scene){
+
+const mesh=new THREE.Mesh(
+new THREE.CylinderGeometry(rt,rb,h,40),
+mat
+);
+
+mesh.position.set(x,y,z);
+
+mesh.castShadow=true;
+mesh.receiveShadow=true;
+
+parent.add(mesh);
+
+return mesh;
+
+}
+
+function tube(points,radius,mat,parent=scene){
+
+const curve=new THREE.CatmullRomCurve3(
+points.map(p=>new THREE.Vector3(...p))
+);
+
+const mesh=new THREE.Mesh(
+
+new THREE.TubeGeometry(
+curve,
+Math.max(32,points.length*8),
+radius,
+10,
+false
+),
+
+mat
+
+);
+
+mesh.castShadow=true;
+
+parent.add(mesh);
+
+return mesh;
+
+}
+
+// ======================================================
+// FLOOR AND PLATFORM
+// ======================================================
+
+box(
+15,0.2,9,
+new THREE.MeshStandardMaterial({
+color:0xcbd5e1,
+roughness:0.85
+}),
+0,-0.15,0
+);
+
+box(6.6,0.3,3.5,dark,1.3,0.12,0);
+
+// ======================================================
+// WATER SUPPLY PIPE
+// ======================================================
+
+const pipeMaterial=new THREE.MeshStandardMaterial({
+color:0x687e90,
+metalness:0.75,
+roughness:0.3
+});
+
+tube([
+[-5,3.5,0],
+[-5,2.8,0],
+[-4.6,2.5,0],
+[-3.9,2.5,0]
+],0.24,pipeMaterial);
+
+// Nozzle
+
+const nozzle=new THREE.Mesh(
+
+new THREE.CylinderGeometry(
+0.1,0.22,0.6,32
+),
+
+metal
+
+);
+
+nozzle.rotation.z=-Math.PI/2;
+
+nozzle.position.set(-3.75,2.5,0);
+
+scene.add(nozzle);
+
+// ======================================================
+// TURBINE
+// ======================================================
+
+const turbine=new THREE.Group();
+
+turbine.position.set(-2.4,1.55,0);
+
+scene.add(turbine);
+
+const wheel=new THREE.Group();
+
+turbine.add(wheel);
+
+// Turbine axis is along X.
+
+const hub=new THREE.Mesh(
+new THREE.CylinderGeometry(0.4,0.4,0.55,40),
+dark
+);
+
+hub.rotation.z=Math.PI/2;
+
+wheel.add(hub);
+
+const bladeMaterial=new THREE.MeshStandardMaterial({
+color:0x0879bb,
+metalness:0.7,
+roughness:0.25,
+side:THREE.DoubleSide
+});
+
+// Curved turbine blades
+
+for(let i=0;i<12;i++){
+
+const a=i*Math.PI*2/12;
+
+const blade=new THREE.Group();
+
+blade.rotation.x=a;
+
+wheel.add(blade);
+
+const geometry=new THREE.BoxGeometry(
+0.52,
+0.58,
+0.12
+);
+
+const mesh=new THREE.Mesh(
+geometry,
+bladeMaterial
+);
+
+mesh.position.y=0.68;
+
+mesh.rotation.x=0.35;
+
+mesh.castShadow=true;
+
+blade.add(mesh);
+
+}
+
+// Outer rings
+
+for(const x of [-0.32,0.32]){
+
+const ring=new THREE.Mesh(
+
+new THREE.TorusGeometry(
+0.95,
+0.045,
+12,
+64
+),
+
+metal
+
+);
+
+ring.rotation.y=Math.PI/2;
+
+ring.position.x=x;
+
+wheel.add(ring);
+
+}
+
+// ======================================================
+// SHAFT AND ROTOR
+// ======================================================
+
+const rotor=new THREE.Group();
+
+rotor.position.set(0,1.55,0);
+
+scene.add(rotor);
+
+const shaft=new THREE.Mesh(
+
+new THREE.CylinderGeometry(
+0.105,
+0.105,
+5.8,
+32
+),
+
+metal
+
+);
+
+shaft.rotation.z=Math.PI/2;
+
+shaft.position.x=-0.15;
+
+rotor.add(shaft);
+
+// ======================================================
+// ROTATING MAGNET
+// ======================================================
+
+const magnetGroup=new THREE.Group();
+
+magnetGroup.position.x=1.45;
+
+rotor.add(magnetGroup);
+
+box(
+0.65,0.5,0.8,
+red,
+0,0.25,0,
+magnetGroup
+);
+
+box(
+0.65,0.5,0.8,
+blue,
+0,-0.25,0,
+magnetGroup
+);
+
+const core=new THREE.Mesh(
+
+new THREE.CylinderGeometry(
+0.24,0.24,0.85,32
+),
+
+dark
+
+);
+
+core.rotation.z=Math.PI/2;
+
+magnetGroup.add(core);
+
+// ======================================================
+// REALISTIC HELICAL COPPER WINDING
+// ======================================================
+
+const coilGroup=new THREE.Group();
+
+coilGroup.position.set(1.45,1.55,0);
+
+scene.add(coilGroup);
+
+// Three concentric layers of copper winding.
+
+function createWinding(radius,turns,length){
+
+const points=[];
+
+const segments=turns*32;
+
+for(let i=0;i<=segments;i++){
+
+const t=i/segments;
+
+const angle=t*Math.PI*2*turns;
+
+const x=-length/2+t*length;
+
+const y=radius*Math.cos(angle);
+
+const z=radius*Math.sin(angle);
+
+points.push(
+new THREE.Vector3(x,y,z)
+);
+
+}
+
+const curve=new THREE.CatmullRomCurve3(points);
+
+const geometry=new THREE.TubeGeometry(
+curve,
+segments,
+0.018,
+8,
+false
+);
+
+const winding=new THREE.Mesh(
+geometry,
+copper
+);
+
+winding.castShadow=true;
+winding.receiveShadow=true;
+
+coilGroup.add(winding);
+
+}
+
+createWinding(0.78,34,1.7);
+
+createWinding(0.825,34,1.7);
+
+createWinding(0.87,34,1.7);
+
+// Insulating end rings
+
+const insulation=new THREE.MeshStandardMaterial({
+color:0x303b48,
+metalness:0.3,
+roughness:0.5
+});
+
+for(const x of [-0.9,0.9]){
+
+const ring=new THREE.Mesh(
+
+new THREE.TorusGeometry(
+0.83,
+0.055,
+12,
+80
+),
+
+insulation
+
+);
+
+ring.rotation.y=Math.PI/2;
+
+ring.position.x=x;
+
+coilGroup.add(ring);
+
+}
+
+// ======================================================
+// TRANSPARENT GENERATOR HOUSING
+// ======================================================
+
+const housing=new THREE.Mesh(
+
+new THREE.CylinderGeometry(
+1.13,
+1.13,
+2.1,
+64,
+1,
+true
+),
+
+glass
+
+);
+
+housing.rotation.z=Math.PI/2;
+
+housing.position.set(1.45,1.55,0);
+
+scene.add(housing);
+
+// Supports
+
+for(const x of [0.35,2.55]){
+
+box(
+0.22,1.1,0.8,
+metal,
+x,0.65,0
+);
+
+const bearing=new THREE.Mesh(
+
+new THREE.TorusGeometry(
+0.21,
+0.08,
+12,
+32
+),
+
+dark
+
+);
+
+bearing.rotation.y=Math.PI/2;
+
+bearing.position.set(x,1.55,0);
+
+scene.add(bearing);
+
+}
+
+// ======================================================
+// MAGNETIC FIELD
+// ======================================================
+
+const fieldGroup=new THREE.Group();
+
+fieldGroup.position.set(1.45,1.55,0);
+
+scene.add(fieldGroup);
+
+const fieldMaterial=new THREE.LineBasicMaterial({
+color:0x36b3ff,
+transparent:true,
+opacity:0.55
+});
+
+for(let i=0;i<12;i++){
+
+const points=[];
+
+const offset=i*Math.PI*2/12;
+
+for(let j=0;j<=80;j++){
+
+const t=j/80*Math.PI*2;
+
+points.push(
+new THREE.Vector3(
+
+Math.cos(t)*0.85,
+
+Math.sin(t)*1.05*Math.cos(offset),
+
+Math.sin(t)*1.05*Math.sin(offset)
+
+)
+);
+
+}
+
+const geometry=new THREE.BufferGeometry()
+.setFromPoints(points);
+
+fieldGroup.add(
+new THREE.LineLoop(
+geometry,
+fieldMaterial
+)
+);
+
+}
+
+// ======================================================
+// ELECTRICAL WIRES
+// ======================================================
+
+const wireMat=new THREE.MeshStandardMaterial({
+color:0x242c37,
+roughness:0.45
+});
+
+tube([
+[2.3,1.9,0.5],
+[3.2,2.5,0.5],
+[4.1,2.5,0.5],
+[4.1,2.3,0.5]
+],0.035,wireMat);
+
+tube([
+[2.3,1.2,0.5],
+[3.2,0.65,0.5],
+[4.1,0.65,0.5],
+[4.1,1.3,0.5]
+],0.035,wireMat);
+
+// ======================================================
+// 3D BULB
+// ======================================================
+
+const bulbGroup=new THREE.Group();
+
+bulbGroup.position.set(4.1,1.8,0.5);
+
+scene.add(bulbGroup);
+
+cylinder(
+0.22,0.22,0.35,
+metal,
+0,-0.42,0,
+bulbGroup
+);
+
+const bulbMaterial=new THREE.MeshPhysicalMaterial({
+
+color:0xffffff,
+
+transparent:true,
+
+opacity:0.75,
+
+roughness:0.08,
+
+transmission:0.65,
+
+emissive:0xffc400,
+
+emissiveIntensity:0
+
+});
+
+const bulbMesh=new THREE.Mesh(
+
+new THREE.SphereGeometry(
+0.38,40,32
+),
+
+bulbMaterial
+
+);
+
+bulbGroup.add(bulbMesh);
+
+const filamentMat=new THREE.MeshStandardMaterial({
+
+color:0xffa500,
+
+emissive:0xff9d00,
+
+emissiveIntensity:0
+
+});
+
+tube([
+[-0.12,-0.12,0.05],
+[-0.06,0.09,0.05],
+[0,0,0.05],
+[0.06,0.09,0.05],
+[0.12,-0.12,0.05]
+],0.014,filamentMat,bulbGroup);
+
+const bulbLight=new THREE.PointLight(
+0xffd34e,
+0,
+5
+);
+
+bulbGroup.add(bulbLight);
+
+// ======================================================
+// REALISTIC WATER MATERIAL
+// ======================================================
+
+const waterGroup=new THREE.Group();
+
+scene.add(waterGroup);
+
+const waterMaterial=new THREE.MeshPhysicalMaterial({
+
+color:0x19baff,
+
+metalness:0.05,
+
+roughness:0.08,
+
+transparent:true,
+
+opacity:0.78,
+
+transmission:0.25,
+
+clearcoat:1,
+
+depthWrite:false
+
+});
+
+const waterCoreMaterial=new THREE.MeshPhysicalMaterial({
+
+color:0x9be7ff,
+
+transparent:true,
+
+opacity:0.42,
+
+roughness:0.05,
+
+depthWrite:false
+
+});
+
+// ======================================================
+// WATER JET TRAJECTORY
+// ======================================================
+
+const jetCurve=new THREE.CatmullRomCurve3([
+
+new THREE.Vector3(-3.65,2.5,0),
+
+new THREE.Vector3(-3.35,2.49,0),
+
+new THREE.Vector3(-3.05,2.46,0),
+
+new THREE.Vector3(-2.72,2.38,0),
+
+new THREE.Vector3(-2.52,2.31,0)
+
+]);
+
+const waterJet=new THREE.Group();
+
+waterGroup.add(waterJet);
+
+// Generate continuous water stream.
+
+function createWaterJet(flow){
+
+while(waterJet.children.length){
+
+const child=waterJet.children[0];
+
+waterJet.remove(child);
+
+child.geometry.dispose();
+
+}
+
+if(flow<=0)return;
+
+const radius=0.025+flow*0.105;
+
+const geometry=new THREE.TubeGeometry(
+jetCurve,
+100,
+radius,
+16,
+false
+);
+
+const stream=new THREE.Mesh(
+geometry,
+waterMaterial
+);
+
+waterJet.add(stream);
+
+// Bright inner stream.
+
+const core=new THREE.Mesh(
+
+new THREE.TubeGeometry(
+jetCurve,
+100,
+radius*0.48,
+12,
+false
+),
+
+waterCoreMaterial
+
+);
+
+waterJet.add(core);
+
+}
+
+// ======================================================
+// MOVING WATER PARTICLES
+// ======================================================
+
+const droplets=[];
+
+const dropletGeometry=new THREE.SphereGeometry(
+0.025,
+8,
+8
+);
+
+for(let i=0;i<180;i++){
+
+const droplet=new THREE.Mesh(
+dropletGeometry,
+waterMaterial
+);
+
+droplet.userData.progress=Math.random();
+
+droplet.userData.offset=Math.random()*Math.PI*2;
+
+droplet.userData.speed=0.7+Math.random()*0.5;
+
+waterGroup.add(droplet);
+
+droplets.push(droplet);
+
+}
+
+// ======================================================
+// WATER SPLASHES
+// ======================================================
+
+const splashes=[];
+
+for(let i=0;i<100;i++){
+
+const splash=new THREE.Mesh(
+
+new THREE.SphereGeometry(
+0.012+Math.random()*0.023,
+6,
+6
+),
+
+waterMaterial
+
+);
+
+splash.userData.t=Math.random();
+
+splash.userData.vx=(Math.random()-0.5)*1.4;
+
+splash.userData.vy=Math.random()*1.3;
+
+splash.userData.vz=(Math.random()-0.5)*1.4;
+
+waterGroup.add(splash);
+
+splashes.push(splash);
+
+}
+
+// ======================================================
+// WATER COLLECTION BASIN
+// ======================================================
+
+box(
+2.8,0.12,2.4,
+new THREE.MeshStandardMaterial({
+color:0x475569,
+metalness:0.4
+}),
+-2.4,0.05,0
+);
+
+box(
+2.5,0.035,2.1,
+new THREE.MeshPhysicalMaterial({
+color:0x38bdf8,
+transparent:true,
+opacity:0.65
+}),
+-2.4,0.13,0
+);
+
+// ======================================================
+// CONTROL ELEMENTS
+// ======================================================
+
+const ids=[
+"flow",
+"field",
+"turns",
+"load"
+];
+
+const input={};
+
+ids.forEach(id=>{
+input[id]=document.getElementById(id);
+});
+
+function settings(){
+
+return{
+
+flow:+input.flow.value/100,
+
+B:+input.field.value,
+
+N:+input.turns.value,
+
+R:+input.load.value
+
+};
+
+}
+
+function labels(){
+
+document.getElementById("flowText").textContent=
+input.flow.value+"%";
+
+document.getElementById("fieldText").textContent=
+(+input.field.value).toFixed(1)+" T";
+
+document.getElementById("turnsText").textContent=
+input.turns.value;
+
+document.getElementById("loadText").textContent=
+input.load.value+" Ω";
+
+}
+
+ids.forEach(id=>
+input[id].addEventListener("input",labels)
+);
+
+labels();
+
+// Initial water flow.
+
+createWaterJet(settings().flow);
+
+input.flow.addEventListener("input",()=>{
+
+createWaterJet(settings().flow);
+
+});
+
+// ======================================================
+// GENERATOR PHYSICS
+// ======================================================
+
+let running=true;
+
+let omega=0;
+
+let theta=0;
+
+let time=0;
+
+let rms=0;
+
+let current=0;
+
+let power=0;
+
+let voltage=0;
+
+const AREA=0.015;
+
+const INERTIA=0.12;
+
+const FRICTION=0.025;
+
+const INTERNAL_R=2;
+
+const history=[];
+
+function generatorConstant(s){
+
+return s.N*s.B*AREA;
+
+}
+
+function physics(dt){
+
+const s=settings();
+
+const K=generatorConstant(s);
+
+// Water torque.
+
+const waterTorque=2.2*s.flow;
+
+// Generated RMS voltage.
+
+rms=K*omega/Math.sqrt(2);
+
+// RMS load current.
+
+current=rms/(s.R+INTERNAL_R);
+
+// Average electrical power delivered to load.
+
+power=current*current*s.R;
+
+// Opposing electromagnetic torque.
+
+const electricalTorque=
+K*K*omega/(2*(s.R+INTERNAL_R));
+
+// Mechanical friction.
+
+const frictionTorque=FRICTION*omega;
+
+// Angular acceleration.
+
+const acceleration=
+(
+waterTorque-
+electricalTorque-
+frictionTorque
+)/INERTIA;
+
+omega=Math.max(
+0,
+omega+acceleration*dt
+);
+
+// Rotor angle.
+
+theta+=omega*dt;
+
+theta%=Math.PI*2;
+
+time+=dt;
+
+// Instantaneous AC voltage.
+
+voltage=K*omega*Math.sin(theta);
+
+history.push({
+t:time,
+v:voltage
+});
+
+while(history.length>1200){
+history.shift();
+}
+
+}
+
+// ======================================================
+// WATER ANIMATION
+// ======================================================
+
+function animateWater(dt){
+
+const flow=settings().flow;
+
+const enabled=
+document.getElementById("waterToggle").checked;
+
+waterGroup.visible=enabled&&flow>0.001;
+
+if(!waterGroup.visible)return;
+
+// Moving droplets inside continuous water stream.
+
+droplets.forEach(p=>{
+
+p.userData.progress+=
+dt*(0.25+flow*2.8)*p.userData.speed;
+
+if(p.userData.progress>1){
+
+p.userData.progress-=1;
+
+}
+
+const t=p.userData.progress;
+
+const position=jetCurve.getPoint(t);
+
+const spread=0.015+flow*0.045;
+
+p.position.set(
+
+position.x,
+
+position.y+
+Math.sin(p.userData.offset)*spread,
+
+position.z+
+Math.cos(p.userData.offset)*spread
+
+);
+
+p.scale.setScalar(0.4+flow*0.7);
+
+});
+
+// Splash animation.
+
+splashes.forEach(p=>{
+
+p.userData.t+=dt*(0.3+flow*2);
+
+if(p.userData.t>1){
+
+p.userData.t-=1;
+
+}
+
+const t=p.userData.t;
+
+p.position.set(
+
+-2.52+p.userData.vx*t,
+
+2.31+
+p.userData.vy*t-
+2.8*t*t,
+
+p.userData.vz*t
+
+);
+
+p.visible=flow>0.02;
+
+});
+
+}
+
+// ======================================================
+// UPDATE MEASUREMENTS
+// ======================================================
+
+function updateMetrics(){
+
+document.getElementById("rpm").textContent=
+(omega*60/(2*Math.PI)).toFixed(0)+" RPM";
+
+document.getElementById("emf").textContent=
+rms.toFixed(2)+" V";
+
+document.getElementById("current").textContent=
+current.toFixed(2)+" A";
+
+document.getElementById("power").textContent=
+power.toFixed(2)+" W";
+
+}
+
+// ======================================================
+// LIVE GRAPH
+// ======================================================
+
+const graph=document.getElementById("graph");
+
+const ctx=graph.getContext("2d");
+
+function drawGraph(){
+
+const dpr=Math.min(devicePixelRatio,2);
+
+const w=graph.clientWidth;
+
+const h=graph.clientHeight;
+
+if(
+graph.width!==Math.round(w*dpr)||
+graph.height!==Math.round(h*dpr)
+){
+
+graph.width=Math.round(w*dpr);
+
+graph.height=Math.round(h*dpr);
+
+}
+
+ctx.setTransform(dpr,0,0,dpr,0,0);
+
+ctx.clearRect(0,0,w,h);
+
+ctx.fillStyle="#101d32";
+
+ctx.fillRect(0,0,w,h);
+
+const left=45;
+
+const right=15;
+
+const top=20;
+
+const bottom=28;
+
+const pw=w-left-right;
+
+const ph=h-top-bottom;
+
+// Grid.
+
+ctx.strokeStyle="#334155";
+
+ctx.lineWidth=1;
+
+for(let i=0;i<=4;i++){
+
+const y=top+i*ph/4;
+
+ctx.beginPath();
+
+ctx.moveTo(left,y);
+
+ctx.lineTo(w-right,y);
+
+ctx.stroke();
+
+}
+
+ctx.fillStyle="#94a3b8";
+
+ctx.font="11px Arial";
+
+ctx.fillText("Voltage (V)",8,12);
+
+ctx.fillText("Time (s)",w-65,h-7);
+
+if(history.length<2)return;
+
+const end=history[history.length-1].t;
+
+const start=Math.max(0,end-3);
+
+const peak=Math.max(
+
+1,
+
+...history
+.filter(p=>p.t>=start)
+.map(p=>Math.abs(p.v))
+
+)*1.15;
+
+// Voltage waveform.
+
+ctx.strokeStyle="#38bdf8";
+
+ctx.lineWidth=2;
+
+ctx.beginPath();
+
+let first=true;
+
+for(const p of history){
+
+if(p.t<start)continue;
+
+const x=left+(p.t-start)/3*pw;
+
+const y=top+ph/2-p.v/peak*ph/2;
+
+if(first){
+
+ctx.moveTo(x,y);
+
+first=false;
+
+}else{
+
+ctx.lineTo(x,y);
+
+}
+
+}
+
+ctx.stroke();
+
+// Axis values.
+
+ctx.fillStyle="#94a3b8";
+
+ctx.fillText("+"+peak.toFixed(1),5,top+5);
+
+ctx.fillText("0",25,top+ph/2);
+
+ctx.fillText((-peak).toFixed(1),5,top+ph);
+
+}
+
+// ======================================================
+// MAIN ANIMATION LOOP
+// ======================================================
+
+const clock=new THREE.Clock();
+
+function animate(){
+
+requestAnimationFrame(animate);
+
+const dt=Math.min(
+clock.getDelta(),
+0.035
+);
+
+if(running){
+
+physics(dt);
+
+// Rotate turbine and generator together.
+
+wheel.rotation.x=theta;
+
+rotor.rotation.x=theta;
+
+// Magnetic field follows rotor.
+
+fieldGroup.rotation.x=theta;
+
+// Realistic water movement.
+
+animateWater(dt);
+
+// Bulb brightness.
+
+const brightness=1-Math.exp(-power/8);
+
+bulbMaterial.emissiveIntensity=brightness*3;
+
+filamentMat.emissiveIntensity=brightness*4;
+
+bulbLight.intensity=brightness*18;
+
+updateMetrics();
+
+drawGraph();
+
+}
+
+// Camera auto rotation.
+
+controls.autoRotate=
+document.getElementById("autoToggle").checked;
+
+controls.autoRotateSpeed=0.7;
+
+controls.update();
+
+renderer.render(scene,camera);
+
+}
+
+animate();
+
+// ======================================================
+// START BUTTON
+// ======================================================
+
+document.getElementById("start").onclick=()=>{
+
+running=true;
+
+document.getElementById("status").textContent=
+"● GENERATOR RUNNING";
+
+};
+
+// ======================================================
+// PAUSE BUTTON
+// ======================================================
+
+document.getElementById("pause").onclick=()=>{
+
+running=false;
+
+document.getElementById("status").textContent=
+"● SIMULATION PAUSED";
+
+};
+
+// ======================================================
+// RESET BUTTON
+// ======================================================
+
+document.getElementById("reset").onclick=()=>{
+
+input.flow.value=60;
+
+input.field.value=1;
+
+input.turns.value=100;
+
+input.load.value=20;
+
+omega=0;
+
+theta=0;
+
+time=0;
+
+rms=0;
+
+current=0;
+
+power=0;
+
+voltage=0;
+
+history.length=0;
+
+wheel.rotation.x=0;
+
+rotor.rotation.x=0;
+
+fieldGroup.rotation.x=0;
+
+createWaterJet(settings().flow);
+
+labels();
+
+updateMetrics();
+
+drawGraph();
+
+running=true;
+
+document.getElementById("status").textContent=
+"● GENERATOR RUNNING";
+
+};
+
+// ======================================================
+// DISPLAY OPTIONS
+// ======================================================
+
+document.getElementById("fieldToggle").onchange=e=>{
+
+fieldGroup.visible=e.target.checked;
+
+};
+
+document.getElementById("housingToggle").onchange=e=>{
+
+housing.visible=e.target.checked;
+
+};
+
+document.getElementById("waterToggle").onchange=e=>{
+
+waterGroup.visible=e.target.checked;
+
+};
+
+// ======================================================
+// CAMERA PRESETS
+// ======================================================
+
+document.getElementById("front").onclick=()=>{
+
+camera.position.set(0,3,12);
+
+controls.target.set(0,1.5,0);
+
+controls.update();
+
+};
+
+document.getElementById("top").onclick=()=>{
+
+camera.position.set(0,12,0.01);
+
+controls.target.set(0,1.5,0);
+
+controls.update();
+
+};
+
+document.getElementById("side").onclick=()=>{
+
+camera.position.set(12,3,0.01);
+
+controls.target.set(0,1.5,0);
+
+controls.update();
+
+};
+
+// ======================================================
+// RESPONSIVE RENDERING
+// ======================================================
+
+const observer=new ResizeObserver(()=>{
+
+const w=container.clientWidth;
+
+const h=container.clientHeight;
+
+camera.aspect=w/h;
+
+camera.updateProjectionMatrix();
+
+renderer.setSize(w,h);
+
+});
+
+observer.observe(container);
+
+</script>
+
+</body>
+</html>
